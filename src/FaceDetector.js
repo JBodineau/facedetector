@@ -128,7 +128,6 @@ var FaceDetector = (function () {
          * Start face detection
          */
         FaceDetector.prototype.startDetecting = function (updateDelay = 60) {
-            console.log("Start Detecting");
             this.updateDelayParam = updateDelay;
             if (this.updateTimer) {
                 clearInterval(this.updateTimer);
@@ -157,7 +156,6 @@ var FaceDetector = (function () {
         }
 
         FaceDetector.prototype.doRawDetectionLoop = function (_this) {
-            console.log(new Date());
 
             //(Pay attention to call with "bind" on the caller so that following "this" points "FaceDetector")
             //var _this = this;

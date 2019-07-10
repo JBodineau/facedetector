@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.FaceDetector = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.FaceDetector = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 var FaceDetector = require('./src/FaceDetector.js');
 
 
@@ -227,7 +227,7 @@ var Face = (function () {
         function Face(params) {
 
             //Maximum number of samples when calculating moving average
-            var LOWPASS_SAMPLING_RANGE = 20;
+            var LOWPASS_SAMPLING_RANGE = 10;
 
             //The maximum moving distance(ratio of the width of the screen)
             // that can be recognized as the same face.
@@ -266,6 +266,8 @@ var Face = (function () {
 
         }
 
+        
+        var latestUpdatedPosition;
         /**
          * Update coordinates
          * 
@@ -276,15 +278,26 @@ var Face = (function () {
          * @param y
          */
         Face.prototype.updatePos = function (x, y) {
-            var _this = this;
+            if(this.latestUpdatedPosition && this.isClosingToPositionThan(
+                {x: this._lowpass4x.getFilteredValue(), y: this._lowpass4y.getFilteredValue()},
+                {x, y}, this.latestUpdatedPosition )) {
+                var _this = this;
 
-            // 1.Enter the latest coordinates(x,y) into the lowpass filter.
-            _this._lowpass4x.putValue(x);
-            _this._lowpass4y.putValue(y);
+                // 1.Enter the latest coordinates(x,y) into the lowpass filter.
+                _this._lowpass4x.putValue(this.latestUpdatedPosition.x);
+                _this._lowpass4y.putValue(this.latestUpdatedPosition.y);
 
-            // 2.Update coordinates(this.x,this.y) with a value filtered by lowpass filter.
-            _this.x = _this._lowpass4x.getFilteredValue();
-            _this.y = _this._lowpass4y.getFilteredValue();
+                // 2.Update coordinates(this.x,this.y) with a value filtered by lowpass filter.
+                _this.x = _this._lowpass4x.getFilteredValue();
+                _this.y = _this._lowpass4y.getFilteredValue();
+            }
+            this.latestUpdatedPosition = {x, y};
+        };
+
+        Face.prototype.isClosingToPositionThan = function (refPosition, newPosition, latestPosition) {
+            var distRefNew = Math.sqrt(Math.pow(refPosition.x - newPosition.x, 2) + Math.pow(refPosition.y - newPosition.y, 2));
+            var distRefLatest = Math.sqrt(Math.pow(refPosition.x - latestPosition.x, 2) + Math.pow(refPosition.y - latestPosition.y, 2));
+            return distRefLatest < distRefNew;
         };
 
         //
@@ -321,43 +334,8 @@ var Face = (function () {
 
 
             if (detectedNewFaces[0]) {
-
-                for (var i = 0; i < detectedNewFaces.length; i++) {
-
-                    var _tmpNewFace = detectedNewFaces[i];
-
-                    //If the moving distance is less than the specified length(ratio), it is recognized that the same face has moved
-                    var movDistanceRatio = _this.maxMovingDistanceRatio;
-
-                    //Squared distance (I want to reduce the computational load, so I calculate it as a square)
-                    var distance2 = (Math.pow(_tmpNewFace.x - _this.x, 2) + Math.pow(_tmpNewFace.y - _this.y, 2));
-
-                    if (distance2 < minDistance && distance2 < movDistanceRatio * movDistanceRatio) {
-                        // - when "detected face" is nearest from "this face" and within the specified distance
-
-                        //update distance of nearest face
-                        minDistance = distance2;
-                        minDistanceFace = _tmpNewFace;
-                    }
-
-                }
-
-                if (minDistanceFace != null) {
-                    //- when a face at the shortest distance is found
-
-                    //Mark as consumed
-                    minDistanceFace.consumed = true;
-
-                    _this.updatePos(minDistanceFace.x, minDistanceFace.y);
-                    _this.updateSize(minDistanceFace.width, minDistanceFace.height);
-
-                    return true;
-
-                } else {
-
-                    return false;
-
-                }
+                _this.updatePos(detectedNewFaces[0].x, detectedNewFaces[0].y);
+                _this.updateSize(detectedNewFaces[0].width, detectedNewFaces[0].height);
             }
 
 
@@ -453,6 +431,13 @@ var FaceDetector = (function () {
 
             this._ttlFaceIndex = 0;
 
+            //NodeJS timer (interval)
+            this.updateTimer = undefined;
+            //Start with a low update delay, in order to quickly have the 50 first pictures
+            this.updateDelayLocal = 1;
+            //To register the specified update delay
+            this.updateDelayParam = undefined;
+
         }
 
         //[begin]setter for facial detection callback ///////////////////////////////
@@ -491,18 +476,40 @@ var FaceDetector = (function () {
         /**
          * Start face detection
          */
-        FaceDetector.prototype.startDetecting = function () {
+        FaceDetector.prototype.startDetecting = function (updateDelay = 60) {
+            this.updateDelayParam = updateDelay;
+            if (this.updateTimer) {
+                clearInterval(this.updateTimer);
+            }
             var _this = this;
-            requestAnimationFrame(_this.doRawDetectionLoop.bind(_this));
+            this.updateTimer = setInterval(function () {
+                _this.doRawDetectionLoop(_this)
+            }, _this.updateDelayLocal);
+        };
+        
+        /**
+         * Stop face detection
+         */
+        FaceDetector.prototype.stop = function () {
+            if (this.updateTimer) {
+                clearInterval(this.updateTimer);
+                this.updateTimer = undefined;
+            }
+            if(this._onFaceLostCallback) {
+                this._onFaceLostCallback();
+            }
         };
 
+        FaceDetector.prototype.isRunning = function () {
+            return this.updateTimer !== undefined;
+        }
 
-        FaceDetector.prototype.doRawDetectionLoop = function () {
+        FaceDetector.prototype.doRawDetectionLoop = function (_this) {
 
             //(Pay attention to call with "bind" on the caller so that following "this" points "FaceDetector")
-            var _this = this;
+            //var _this = this;
 
-            requestAnimationFrame(_this.doRawDetectionLoop.bind(_this));
+            //requestAnimationFrame(_this.doRawDetectionLoop.bind(_this));
 
             var video = _this.video;
 
@@ -662,6 +669,12 @@ var FaceDetector = (function () {
             //After detecting the face for more than a certain number of times,
             // when it stabilizes, the face integration logic starts.
             if (_this._lowpassFilter4faceCount.getTotalCount() > _this.MIN_NUM_OF_PREPARE_DETECTION) {
+
+                //Reload the process in order to take in account the new rate
+                if(_this.updateDelayParam !== _this.updateDelayLocal) {
+                    _this.updateDelayLocal = _this.updateDelayParam;
+                    _this.startDetecting(_this.updateDelayParam);
+                }
 
                 //Calculate moving average by chronologically counting the number of detected faces, and let it be the number of faces.
                 //(The reason why the weighted average is adopted for the number of faces

@@ -5,8 +5,6 @@ This library is based on the work of Martin Tschirsich's [js-objectdetect](https
 
 Watch [this video](https://www.youtube.com/watch?v=TP4lxliMHXY) for a short demonstration.
 
-<a href="https://www.youtube.com/watch?v=TP4lxliMHXY"><img src="https://riversun.github.io/img/facedetector/facedetector_demo.gif"></a>
-
 *facedetector* is distributed under [MIT license](https://opensource.org/licenses/MIT).
 The included *.js files are subject to [their own licenses](https://raw.githubusercontent.com/riversun/facedetector/master/LICENSE.txt?token=ALNAhFnQvwD-8sIxK9_f-Hp1FdyKVJhVks5aGB9xwA%3D%3D).
 
@@ -53,6 +51,9 @@ var faceDetector = new FaceDetector(
   //after getUserMedia
   faceDetector.startDetecting();
 
+  //to stop the process (to release resources)
+  faceDetector.stop();
+
 ```
 
 
@@ -63,14 +64,14 @@ You can import library with npm.
 **Install**
 
 ```
-npm install facedetector
+npm install @id3/facedetector
 ```
 
 ## Run on browser
 
 
 Download actual files  
-- [FaceDetector.js](https://raw.githubusercontent.com/riversun/facedetector/master/dist/FaceDetector.js)
+- [FaceDetector.js](https://raw.githubusercontent.com/JBodineau/facedetector/master/dist/FaceDetector.js)
 
 ```
 <script src="FaceDetector.js"></script>
