@@ -82,6 +82,13 @@ var FaceDetector = (function () {
 
             this._ttlFaceIndex = 0;
 
+            //NodeJS timer (interval)
+            this.updateTimer = undefined;
+            //Start with a low update delay, in order to quickly have the 50 first pictures
+            this.updateDelayLocal = 1;
+            //To register the specified update delay
+            this.updateDelayParam = undefined;
+
         }
 
         //[begin]setter for facial detection callback ///////////////////////////////
@@ -120,18 +127,42 @@ var FaceDetector = (function () {
         /**
          * Start face detection
          */
-        FaceDetector.prototype.startDetecting = function () {
+        FaceDetector.prototype.startDetecting = function (updateDelay = 60) {
+            console.log("Start Detecting");
+            this.updateDelayParam = updateDelay;
+            if (this.updateTimer) {
+                clearInterval(this.updateTimer);
+            }
             var _this = this;
-            requestAnimationFrame(_this.doRawDetectionLoop.bind(_this));
+            this.updateTimer = setInterval(function () {
+                _this.doRawDetectionLoop(_this)
+            }, _this.updateDelayLocal);
+        };
+        
+        /**
+         * Stop face detection
+         */
+        FaceDetector.prototype.stop = function () {
+            if (this.updateTimer) {
+                clearInterval(this.updateTimer);
+                this.updateTimer = undefined;
+            }
+            if(this._onFaceLostCallback) {
+                this._onFaceLostCallback();
+            }
         };
 
+        FaceDetector.prototype.isRunning = function () {
+            return this.updateTimer !== undefined;
+        }
 
-        FaceDetector.prototype.doRawDetectionLoop = function () {
+        FaceDetector.prototype.doRawDetectionLoop = function (_this) {
+            console.log(new Date());
 
             //(Pay attention to call with "bind" on the caller so that following "this" points "FaceDetector")
-            var _this = this;
+            //var _this = this;
 
-            requestAnimationFrame(_this.doRawDetectionLoop.bind(_this));
+            //requestAnimationFrame(_this.doRawDetectionLoop.bind(_this));
 
             var video = _this.video;
 
@@ -291,6 +322,12 @@ var FaceDetector = (function () {
             //After detecting the face for more than a certain number of times,
             // when it stabilizes, the face integration logic starts.
             if (_this._lowpassFilter4faceCount.getTotalCount() > _this.MIN_NUM_OF_PREPARE_DETECTION) {
+
+                //Reload the process in order to take in account the new rate
+                if(_this.updateDelayParam !== _this.updateDelayLocal) {
+                    _this.updateDelayLocal = _this.updateDelayParam;
+                    _this.startDetecting(_this.updateDelayParam);
+                }
 
                 //Calculate moving average by chronologically counting the number of detected faces, and let it be the number of faces.
                 //(The reason why the weighted average is adopted for the number of faces

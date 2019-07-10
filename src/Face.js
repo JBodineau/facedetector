@@ -32,7 +32,7 @@ var Face = (function () {
         function Face(params) {
 
             //Maximum number of samples when calculating moving average
-            var LOWPASS_SAMPLING_RANGE = 20;
+            var LOWPASS_SAMPLING_RANGE = 10;
 
             //The maximum moving distance(ratio of the width of the screen)
             // that can be recognized as the same face.
@@ -71,6 +71,8 @@ var Face = (function () {
 
         }
 
+        
+        var latestUpdatedPosition;
         /**
          * Update coordinates
          * 
@@ -81,15 +83,26 @@ var Face = (function () {
          * @param y
          */
         Face.prototype.updatePos = function (x, y) {
-            var _this = this;
+            if(this.latestUpdatedPosition && this.isClosingToPositionThan(
+                {x: this._lowpass4x.getFilteredValue(), y: this._lowpass4y.getFilteredValue()},
+                {x, y}, this.latestUpdatedPosition )) {
+                var _this = this;
 
-            // 1.Enter the latest coordinates(x,y) into the lowpass filter.
-            _this._lowpass4x.putValue(x);
-            _this._lowpass4y.putValue(y);
+                // 1.Enter the latest coordinates(x,y) into the lowpass filter.
+                _this._lowpass4x.putValue(this.latestUpdatedPosition.x);
+                _this._lowpass4y.putValue(this.latestUpdatedPosition.y);
 
-            // 2.Update coordinates(this.x,this.y) with a value filtered by lowpass filter.
-            _this.x = _this._lowpass4x.getFilteredValue();
-            _this.y = _this._lowpass4y.getFilteredValue();
+                // 2.Update coordinates(this.x,this.y) with a value filtered by lowpass filter.
+                _this.x = _this._lowpass4x.getFilteredValue();
+                _this.y = _this._lowpass4y.getFilteredValue();
+            }
+            this.latestUpdatedPosition = {x, y};
+        };
+
+        Face.prototype.isClosingToPositionThan = function (refPosition, newPosition, latestPosition) {
+            var distRefNew = Math.sqrt(Math.pow(refPosition.x - newPosition.x, 2) + Math.pow(refPosition.y - newPosition.y, 2));
+            var distRefLatest = Math.sqrt(Math.pow(refPosition.x - latestPosition.x, 2) + Math.pow(refPosition.y - latestPosition.y, 2));
+            return distRefLatest < distRefNew;
         };
 
         //
@@ -126,43 +139,8 @@ var Face = (function () {
 
 
             if (detectedNewFaces[0]) {
-
-                for (var i = 0; i < detectedNewFaces.length; i++) {
-
-                    var _tmpNewFace = detectedNewFaces[i];
-
-                    //If the moving distance is less than the specified length(ratio), it is recognized that the same face has moved
-                    var movDistanceRatio = _this.maxMovingDistanceRatio;
-
-                    //Squared distance (I want to reduce the computational load, so I calculate it as a square)
-                    var distance2 = (Math.pow(_tmpNewFace.x - _this.x, 2) + Math.pow(_tmpNewFace.y - _this.y, 2));
-
-                    if (distance2 < minDistance && distance2 < movDistanceRatio * movDistanceRatio) {
-                        // - when "detected face" is nearest from "this face" and within the specified distance
-
-                        //update distance of nearest face
-                        minDistance = distance2;
-                        minDistanceFace = _tmpNewFace;
-                    }
-
-                }
-
-                if (minDistanceFace != null) {
-                    //- when a face at the shortest distance is found
-
-                    //Mark as consumed
-                    minDistanceFace.consumed = true;
-
-                    _this.updatePos(minDistanceFace.x, minDistanceFace.y);
-                    _this.updateSize(minDistanceFace.width, minDistanceFace.height);
-
-                    return true;
-
-                } else {
-
-                    return false;
-
-                }
+                _this.updatePos(detectedNewFaces[0].x, detectedNewFaces[0].y);
+                _this.updateSize(detectedNewFaces[0].width, detectedNewFaces[0].height);
             }
 
 
