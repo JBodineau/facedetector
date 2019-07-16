@@ -476,7 +476,10 @@ var FaceDetector = (function () {
         /**
          * Start face detection
          */
-        FaceDetector.prototype.startDetecting = function (updateDelay = 60) {
+        FaceDetector.prototype.startDetecting = function (updateDelay) {
+            if (!updateDelay) {
+                updateDelay = 60;
+            }
             this.updateDelayParam = updateDelay;
             if (this.updateTimer) {
                 clearInterval(this.updateTimer);
