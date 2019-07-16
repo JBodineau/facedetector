@@ -1,6 +1,6 @@
 {
   "name": "@id3/facedetector",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Detect and track faces in real-time from web camera and video stream",
   "main": "index.js",
   "scripts": {

@@ -85,7 +85,7 @@ var Face = (function () {
         Face.prototype.updatePos = function (x, y) {
             if(this.latestUpdatedPosition && this.isClosingToPositionThan(
                 {x: this._lowpass4x.getFilteredValue(), y: this._lowpass4y.getFilteredValue()},
-                {x, y}, this.latestUpdatedPosition )) {
+                {x: x, y: y}, this.latestUpdatedPosition )) {
                 var _this = this;
 
                 // 1.Enter the latest coordinates(x,y) into the lowpass filter.
@@ -96,7 +96,7 @@ var Face = (function () {
                 _this.x = _this._lowpass4x.getFilteredValue();
                 _this.y = _this._lowpass4y.getFilteredValue();
             }
-            this.latestUpdatedPosition = {x, y};
+            this.latestUpdatedPosition = {x: x, y: y};
         };
 
         Face.prototype.isClosingToPositionThan = function (refPosition, newPosition, latestPosition) {
